@@ -3,8 +3,8 @@
 import socket
 import sys
 
-BUF_SIZE = 172
-HOST = '10.21.75.71'
+BUF_SIZE = 1024
+HOST = ''
 PORT = 12345
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -21,13 +21,13 @@ while True:
         data = sc.recv(BUF_SIZE)
         result = data.decode(encoding='UTF-8', errors='strict').strip()
         header = result[:3]
-        key = result[3:11:1]
+        key = result[3:11]
 
         if header == 'PUT':
             message = result[11:]
-            if len(message) > 160:
-                print('Error: message exceeds 160 bytes')
-                raise Exception('')
+            if (len(message) <= 0 or len(message) > 160):
+                print('Error: message must be between 0-160 bytes')
+                raise Exception('NO\n')
 
             dictionary[key] = message
             put = 'OK\n'
@@ -35,19 +35,29 @@ while True:
             print('OK')
 
         elif header == 'GET':
-            get = 'Key: ' + key + ' Message: ' + dictionary[key] + '\n'
+            if (len(result[11:]) != 0):
+                print('Error: GET cannot include message')
+                raise Exception('\n')
+            if bool(dictionary.get(key)) == False:
+                raise Exception('\n')
+
+            get = dictionary[key] + '\n'
             data = get.encode()
             print('Key:', key, 'Message:', dictionary[key])
 
         else:
             print('Error: must be GET or PUT')
-            raise Exception('')
+            raise Exception('NO\n')
             
     except Exception as err:
-        error = 'NO\n'
-        data = error.encode()
+        err = str(err)
+        data = err.encode()
         print(err)
 
-    sc.sendall(data)
-    sc.close()
+    try:
+        sc.sendall(data)
+        sc.close()
+    except Exception as err:
+        print(err)
+
 
