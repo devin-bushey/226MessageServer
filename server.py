@@ -147,22 +147,25 @@ def process_line(s):
 
 #
 # PURPOSE:
+# Given a socket, processes client command, closes socket when process is complete 
 #
+# PARAMETERS:
+# 'sc' is the socket connection
+# 'sockname' is the socket address
+#
+# NOTES:
+# Handles any socket error by throwing exception and closing the socket
+# 
 def handle_client(sc, sockname):
-    print('[New Connection:] ', sockname)
-    print('[Active Connections:] ', threading.activeCount() - 1)
-
-    connected = True
-    while connected:
-        try:
-            data = get_line(sc)
-            #print('Data:', data)
-            response = process_line(data)
-            sc.sendall(response + b'\n')
-            connected = False
-        except socket.error as err:
-            print('Socket Error: ', err)
-            sc.close()
+    #print('[New Connection:] ', sockname)
+    try:
+        data = get_line(sc)
+        #print('Data:', data)
+        response = process_line(data)
+        sc.sendall(response + b'\n')
+    except socket.error as err:
+        print('Socket Error: ', err)
+        sc.close()
 
     sc.close()
 
@@ -180,6 +183,7 @@ while True:
     #print('Client:', sc.getpeername())
     thread = threading.Thread(target = handle_client, args = (sc, sockname))
     thread.start()
+    #print('[Active Connections:] ', threading.activeCount() - 1)
 
 
 
