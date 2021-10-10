@@ -15,6 +15,7 @@ PUT_CMD = 'PUT'
 HOST = '127.0.0.1'
 PORT = 12345
 
+
 def stop_container():
     print('\n\n')
     cmd = subprocess.run(['sudo', 'docker', 'stop', '226-message-server'], capture_output=True)
@@ -124,8 +125,9 @@ def send_put_msg(sock, num):
 
     print('Client', num, 'sending', PUT_CMD, key)
     sock.sendall((PUT_CMD + key + msg + '\n').encode('utf-8'))
-    print('Client', num, 'received', get_line(sock))
-
+    output = get_line(sock)
+    print('Client', num, 'received', output)
+    assert output == b'OK'
     return (key, msg)
 
 def send_get_msg(sock, num, key, msg):
@@ -136,9 +138,13 @@ def send_get_msg(sock, num, key, msg):
     print('Client', num, 'sending', GET_CMD, key)
     sock.sendall((GET_CMD + key + '\n').encode('utf-8'))
     data = get_line(sock)
-    print('Client', num, 'received', ('' if msg.encode('utf-8') == data else 'in') + 'correct message')
+    output = ('' if msg.encode('utf-8') == data else 'in') + 'correct message'
+    print('Client', num, 'received', output)
+    assert output == 'correct message'
+
 
 def test_multithreading():
+    print('\n----\n')
     NUM_SESSIONS = 5
     if len(sys.argv) == 2:
         newVal = int(sys.argv[1])
@@ -156,22 +162,28 @@ def test_multithreading():
     for (i, sock, (key, msg)) in msgs:
         send_get_msg(sock, i, key, msg)
 
-    def send_individually(s, sock):
-        for c in s:
-            sock.sendall(str(c).encode('utf-8'))
-        return get_line(sock)
+def send_individually(s, sock):
+    for c in s:
+        sock.sendall(str(c).encode('utf-8'))
+    return get_line(sock)
 
+def test_fragmentation():
+    print('\n----\n')
     sock = setup_cnx(-1)
     fragmented_put_cmd = 'PUTabcdefghThis is a test\nX'
-    if send_individually(fragmented_put_cmd, sock) != b'OK':
-        print(b'Last put failed')
+    output = send_individually(fragmented_put_cmd, sock)
+    assert output == b'OK'
+    if output != b'OK':
+       print(b'Last put failed')
     else:
         print(b'Last put ok')
     sock.close()
 
     sock = setup_cnx(-2)
     fragmented_get_cmd = 'GETabcdefgh\n'
-    if send_individually(fragmented_get_cmd, sock) != b'This is a test':
+    output = send_individually(fragmented_get_cmd, sock)
+    assert output == b'This is a test'
+    if output != b'This is a test':
         print(b'Last get failed')
     else:
         print(b'Last get ok')

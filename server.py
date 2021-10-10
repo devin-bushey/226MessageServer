@@ -62,9 +62,7 @@ def get_key(s):
     if len(s) < KEY_SIZE:
         return ("", "", False)
     else:
-        lock.acquire()
         result = (s[:KEY_SIZE], s[KEY_SIZE:], True)
-        lock.release() 
         return result
 
 #
