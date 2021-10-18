@@ -3,6 +3,7 @@
 import socket
 import threading
 import logging
+import asyncio
 
 KEY_SIZE = 8
 MAX_MSG_SIZE = 160
@@ -113,7 +114,7 @@ def process_get(s):
     if not ok or len(msg) != 0 or not keyInMsg:
         return b''
 
-    #print("Found", messages[key], "with key", key)
+    print("Found", messages[key], "with key", key)
     lock.acquire()
     result = messages[key]
     lock.release()
@@ -148,40 +149,34 @@ def process_line(s):
 # Given a socket, processes client command, closes socket when process is complete 
 #
 # PARAMETERS:
-# 'sc' is the socket connection
-# 'sockname' is the socket address
+# 'reader' is an instance of the StreamReader class
+# 'writer' is an instance of the StreamWriter class
 #
-# NOTES:
-# Handles any socket error by throwing exception and closing the socket
-# 
-def handle_client(sc, sockname):
+async def handle_client(reader, writer):
     #print('[New Connection:] ', sockname)
     try:
-        data = get_line(sc)
-        #print('Data:', data)
-        response = process_line(data)
-        sc.sendall(response + b'\n')
-    except socket.error as err:
-        print('Socket Error: ', err)
-        sc.close()
+        message = await reader.readline()
+        response = process_line(message.strip())
+        writer.write(response + b'\n')
+        await writer.drain()
+    except Exception as e:
+        print(e)
+    if writer != None:
+        writer.close()
+        await writer.wait_closed()
 
-    sc.close()
 
 #
-# Note: Connection errors are not handled
+# PURPOSE:
+# Main function that uses AsyncIO to accept clients and run the program  
 #
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind((HOST, PORT))
-sock.listen(NUM_CONNECTIONS)
-print('Server:', sock.getsockname())
+async def main():
+    server = await asyncio.start_server(handle_client, HOST, PORT)
+    await server.serve_forever()
 
-while True:
-    sc, sockname = sock.accept()
-    #print('Client:', sc.getpeername())
-    thread = threading.Thread(target = handle_client, args = (sc, sockname))
-    thread.start()
-    #print('[Active Connections:] ', threading.activeCount() - 1)
+asyncio.run(main())
+
+
 
 
 
