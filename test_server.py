@@ -125,7 +125,7 @@ def send_put_msg(sock, num):
 
     print('Client', num, 'sending', PUT_CMD, key)
     sock.sendall((PUT_CMD + key + msg + '\n').encode('utf-8'))
-    output = get_line(sock)
+    output = get_line(sock)        
     print('Client', num, 'received', output)
     assert output == b'OK'
     return (key, msg)
@@ -138,10 +138,7 @@ def send_get_msg(sock, num, key, msg):
     print('Client', num, 'sending', GET_CMD, key)
     sock.sendall((GET_CMD + key + '\n').encode('utf-8'))
     data = get_line(sock)
-    output = ('' if msg.encode('utf-8') == data else 'in') + 'correct message'
-    print('Client', num, 'received', output)
-    assert output == 'correct message'
-
+    assert msg.encode('utf-8') == data
 
 def test_multithreading():
     print('\n----\n')
@@ -171,22 +168,12 @@ def test_fragmentation():
     print('\n----\n')
     sock = setup_cnx(-1)
     fragmented_put_cmd = 'PUTabcdefghThis is a test\nX'
-    output = send_individually(fragmented_put_cmd, sock)
-    assert output == b'OK'
-    if output != b'OK':
-       print(b'Last put failed')
-    else:
-        print(b'Last put ok')
+    assert send_individually(fragmented_put_cmd, sock) == b'OK'
     sock.close()
 
     sock = setup_cnx(-2)
     fragmented_get_cmd = 'GETabcdefgh\n'
-    output = send_individually(fragmented_get_cmd, sock)
-    assert output == b'This is a test'
-    if output != b'This is a test':
-        print(b'Last get failed')
-    else:
-        print(b'Last get ok')
+    assert send_individually(fragmented_get_cmd, sock) == b'This is a test'
     sock.close()
 
 
