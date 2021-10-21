@@ -1,49 +1,22 @@
 #!/usr/bin/python3
 
-import socket
 import threading
 import logging
 import asyncio
 
 KEY_SIZE = 8
 MAX_MSG_SIZE = 160
-BUF_SIZE = 1024
+
+HOST = ''
+PORT = 12345
 
 ERROR_RESPONSE = b"NO"
 GET_CMD = "GET".encode('utf-8')
-HOST = ''
-NUM_CONNECTIONS = 5
 OK_RESPONSE = b'OK'
-PORT = 12345
 PUT_CMD = "PUT".encode('utf-8')
 
 lock = threading.Semaphore(1)
 messages = {}
-
-#
-# PURPOSE:
-# Given a valid socket connection, reads in bytes from the connection until
-# either a newline is encountered or BUF_SIZE charcters have been read,
-# whichever occurs first
-#
-# PARAMETERS:
-# 'current_socket' contains a valid server socket
-#
-# RETURN/SIDE EFFECTS:
-# Returns the bytes that have been read in
-#
-# NOTES:
-# No connection errors are handled
-#
-def get_line(current_socket):
-        buffer = b''
-        size = 0
-        while True:
-                data = current_socket.recv(1)
-                size += 1
-                if data == b'\n' or size >= BUF_SIZE:
-                        return buffer
-                buffer = buffer + data
 
 #
 # PURPOSE:
@@ -146,8 +119,8 @@ def process_line(s):
 
 #
 # PURPOSE:
-# Given a socket, processes client command, closes socket when process is complete 
-#
+# Given a socket, processes client command (refer to 'process_line' method), closes socket when process is complete 
+# 
 # PARAMETERS:
 # 'reader' is an instance of the StreamReader class
 # 'writer' is an instance of the StreamWriter class
@@ -175,8 +148,6 @@ async def main():
     await server.serve_forever()
 
 asyncio.run(main())
-
-
 
 
 
