@@ -129,6 +129,7 @@ async def handle_client(reader, writer):
     #print('[New Connection:] ', sockname)
     try:
         message = await reader.readline()
+        #print(f'Message: {message}')
         response = process_line(message.strip())
         writer.write(response + b'\n')
         await writer.drain()
