@@ -42,15 +42,15 @@ def validateArguments(args):
 #
 # PURPOSE:
 # Given a command, valid key, and message, send the given command with given key and message to the server
-# Handles GET or PUT requests
+# Handles GET or PUT requestsi
 #
 # PARAMETERS:
-# 'cmd' is either a GET or PUT
-# 'key' is a string
+# 'cmd' is a string which is assumed to be either a GET or PUT
+# 'key' is a string which is the key to be sent to the server
 # 'msg' is the associated message for the key. It should be blank if the command is a GET
 #
 # RETURN/SIDE EFFECTS:
-# Returns the response by the server
+# Returns the decoded response by the server
 #
 # NOTES:
 # Opens/closes a new connection to the server
@@ -58,8 +58,8 @@ def validateArguments(args):
 
 async def sendRequest(cmd, key, msg):
     reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
-    key_msg = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
-    writer.write(key_msg)
+    request = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
+    writer.write(request)
     data = await reader.readline()
     #print(f'Recieved: {data.decode("utf-8")}')
     writer.close()
@@ -69,32 +69,33 @@ async def sendRequest(cmd, key, msg):
 #
 # PURPOSE:
 # Given a key from the command line, print all associated messages in the thread, then prompt
-# the user for a new message, which will be associated with a randomly generated key
-# Finally, the new message and randomly generated key are sent to the server by a PUT request
+# the user for a new message. This new message will be paired with a randomly generated key
+# Finally, the new message and key are sent to the server by a PUT request
 #
 # PARAMETERS:
-# 'key' is a argument from the commandline
+# 'key' is a string, which is an argument from the commandline.
+# Assume the key has been validated as an 8-digit string
+#
+# NOTES:
+# If there is a message returned from the server, assume that meesage consists of
+# of an 8-digit key and a message body
 #
 async def client(key):
     get_result = await sendRequest(GET_CMD, key, BLANK)
     msg = get_result.strip()[KEY_LENGTH:]
-    next_key = key
 
-    #Print all messages in the thread
     while len(msg) > 0:
-        next_key = get_result.strip()[:KEY_LENGTH]
-        msg = get_result.strip()[KEY_LENGTH:]
+        key = get_result.strip()[:KEY_LENGTH]
         print(f'Message: {msg}')
-        get_result = await sendRequest(GET_CMD, next_key, BLANK)
+        get_result = await sendRequest(GET_CMD, key, BLANK)
         msg = get_result.strip()[KEY_LENGTH:]
     
-    prev_key = next_key
     next_key = ''.join(random.choices(string.digits, k=KEY_LENGTH))
 
     new_msg = input(f'Please enter a message for key {next_key}: ')
     new_msg = next_key + new_msg
 
-    await sendRequest(PUT_CMD, prev_key, new_msg)
+    await sendRequest(PUT_CMD, key, new_msg)
 
 
 
