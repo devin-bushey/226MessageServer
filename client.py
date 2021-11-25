@@ -4,11 +4,13 @@ import asyncio
 import sys
 import random
 import string
+import traceback
 
 GET_CMD = "GET".encode('utf-8')
 BLANK = ''
 PUT_CMD = "PUT".encode('utf-8')
 KEY_LENGTH = 8
+NO_RESPONSE = 'NO'
 
 #
 # PURPOSE:
@@ -56,7 +58,7 @@ def validateArguments(args):
 # Opens/closes a new connection to the server
 #
 
-async def sendRequest(cmd, key, msg):
+async def sendGetRequest(cmd, key, msg):
     reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
     request = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
     writer.write(request)
@@ -66,6 +68,31 @@ async def sendRequest(cmd, key, msg):
     await writer.wait_closed()
     return data.decode('utf-8')
 
+async def sendPutRequest(cmd, key, msg):
+    check = True
+    print(f'key is: ', key)
+    reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
+    request = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
+    writer.write(request)
+    data = await reader.readline()
+    writer.close()
+    await writer.wait_closed()
+        
+    while check:
+        if data.decode('utf-8')[:len(NO_RESPONSE)] == NO_RESPONSE:
+            reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
+            key = data.decode('utf-8')[len(NO_RESPONSE):KEY_LENGTH]
+            new_msg = key + data.decode('utf-8')[KEY_LENGTH:]
+            request = cmd + key.encode('utf-8') + new_msg.encode('utf-8') + b'\n'
+            writer.write(request)
+            data = await reader.readline()
+            print(f'Recieved: {data.decode("utf-8")}')
+            writer.close()
+            await writer.wait_closed()
+        else:
+            check = False
+        #print(f'Recieved: {data.decode("utf-8")}')
+    return data.decode('utf-8')
 #
 # PURPOSE:
 # Given a key from the command line, print all associated messages in the thread, then prompt
@@ -80,33 +107,47 @@ async def sendRequest(cmd, key, msg):
 # If there is a message returned from the server, assume that meesage consists of
 # of an 8-digit key and a message body
 #
-async def client(key):
-    get_result = await sendRequest(GET_CMD, key, BLANK)
-    msg = get_result.strip()[KEY_LENGTH:]
-
-    while len(msg) > 0:
-        key = get_result.strip()[:KEY_LENGTH]
-        print(f'Message: {msg}')
-        get_result = await sendRequest(GET_CMD, key, BLANK)
+async def get():
+    global key
+    while True:
+        get_result = await sendGetRequest(GET_CMD, key, BLANK)
         msg = get_result.strip()[KEY_LENGTH:]
-    
-    next_key = ''.join(random.choices(string.digits, k=KEY_LENGTH))
+        
+        while len(msg) > 0:
+            key = get_result.strip()[:KEY_LENGTH]
+            print(f'Message: {msg}')
+            get_result = await sendGetRequest(GET_CMD, key, BLANK)
+            msg = get_result.strip()[KEY_LENGTH:]
+        
+        await asyncio.sleep(5)
 
-    new_msg = input(f'Please enter a message for key {next_key}: ')
-    new_msg = next_key + new_msg
+async def put():
+    global key
+    while True:
 
-    await sendRequest(PUT_CMD, key, new_msg)
+        next_key = ''.join(random.choices(string.digits, k=KEY_LENGTH))
+
+        loop = asyncio.get_running_loop()
+        try:
+            new_msg = await loop.run_in_executor(None, input, f'Please enter a message for key {next_key}: ')
+        except:
+           break
+        new_msg = next_key + new_msg
+
+        await sendPutRequest(PUT_CMD, key, new_msg)
+
+async def main():
+    try:
+        await asyncio.gather(get(), put())
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
 
 
-
-#
-# Main 
-#
 validateArguments(sys.argv)
 SERVER_IP = sys.argv[1]
 PORT = sys.argv[2]
+key = sys.argv[3]
 
-asyncio.run(client(sys.argv[3]))
-
-
+asyncio.run(main())
 

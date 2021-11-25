@@ -3,17 +3,20 @@
 import threading
 import logging
 import asyncio
+import traceback
 
 KEY_SIZE = 8
 MAX_MSG_SIZE = 160
 
-HOST = ''
+HOST = '::1'
 PORT = 12345
 
 ERROR_RESPONSE = b"NO"
 GET_CMD = "GET".encode('utf-8')
 OK_RESPONSE = b'OK'
 PUT_CMD = "PUT".encode('utf-8')
+NO_MSG = 'NO '
+NO_RESPONSE = b'NO'
 
 lock = threading.Semaphore(1)
 messages = {}
@@ -56,10 +59,24 @@ def get_key(s):
 def process_put(s):
 
     (key, msg, ok) = get_key(s)
+    
     if (not ok) or (len(msg) > MAX_MSG_SIZE):
         return ERROR_RESPONSE
+    
+    lock.acquire()
+    keyInMsg = key in messages
+    lock.release()
+    
+    if keyInMsg:
+        #return NO_RESPONSE + exMsg
+        lock.acquire()
+        exMsg = messages[key]
+        lock.release()
 
+        return NO_RESPONSE + exMsg
+    
     #print("Saving", msg, "with key", key)
+    
     lock.acquire()
     messages[key] = msg
     lock.release()
@@ -88,6 +105,7 @@ def process_get(s):
         return b''
 
     print("Found", messages[key], "with key", key)
+    
     lock.acquire()
     result = messages[key]
     lock.release()
@@ -131,13 +149,17 @@ async def handle_client(reader, writer):
         message = await reader.readline()
         #print(f'Message: {message}')
         response = process_line(message.strip())
+        #print(f'Response: ', response)
         writer.write(response + b'\n')
         await writer.drain()
     except Exception as e:
+        traceback.print_exc()
         print(e)
     if writer != None:
         writer.close()
         await writer.wait_closed()
+
+
 
 
 #
