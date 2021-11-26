@@ -43,13 +43,11 @@ def validateArguments(args):
     
 #
 # PURPOSE:
-# Given a command, valid key, and message, send the given command with given key and message to the server
-# Handles GET or PUT requestsi
+# Send a GET request to the server using the latest key 
 #
 # PARAMETERS:
-# 'cmd' is a string which is assumed to be either a GET or PUT
-# 'key' is a string which is the key to be sent to the server
-# 'msg' is the associated message for the key. It should be blank if the command is a GET
+# 'key' is a string which is the key to be sent to the server.
+# key is a global variable because its needed between both PUT and GET's in the main function
 #
 # RETURN/SIDE EFFECTS:
 # Returns the decoded response by the server
@@ -70,6 +68,22 @@ async def sendGetRequest():
     return data.decode('utf-8')
 
 
+#
+# PURPOSE:
+# Send a PUT request to the server using a given key and message 
+# If the server responds with a 'NO' then that means that a message with the given key already exists
+# therefore, this method retries a PUT request with the key that was returned by the server 
+#
+# PARAMETERS:
+# 'key' is a string which is the key to be sent to the server.
+# 'msg' is a string to be sent to the server
+#
+# RETURN/SIDE EFFECTS:
+# Returns the decoded response by the server
+#
+# NOTES:
+# Opens/closes a new connection to the server
+#
 async def sendPutRequest(key, msg):
     og_msg = msg[KEY_LENGTH:]
     request = PUT_CMD + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
@@ -95,12 +109,11 @@ async def sendPutRequest(key, msg):
     
 #
 # PURPOSE:
-# Given a key from the command line, print all associated messages in the thread, then prompt
-# the user for a new message. This new message will be paired with a randomly generated key
-# Finally, the new message and key are sent to the server by a PUT request
+# Given a key from the command line, print all associated messages in the thread
+# Poll the server every 5 seconds with the latest key to retrieve the latest message
 #
 # PARAMETERS:
-# 'key' is a string, which is an argument from the commandline.
+# 'key' is a string, which is a global variable
 # Assume the key has been validated as an 8-digit string
 #
 # NOTES:
@@ -125,6 +138,17 @@ async def get():
 
 
 
+#
+# PURPOSE:
+# Prompt the user for a new message. This new message will be paired with a randomly generated key
+# The new message and key are sent to the server by a PUT request
+#
+# PARAMETERS:
+# 'key' is a string, which is a global variable
+# Assume the key has been validated as an 8-digit string
+#
+# NOTES:
+#
 async def put():
     global key
     
@@ -141,6 +165,15 @@ async def put():
         await sendPutRequest(key, new_msg)
         
 
+#
+# PURPOSE:
+# Use two co-routines to retrieve the latest message in a thread using a given key from the commandline and 
+# send a new message to the server with the latest key
+# The client does not quit
+#
+# NOTES:
+# Each co-routine communicates the latest key by using the key as a global variable
+#
 async def main():
     try:
         await asyncio.gather(get(), put())
