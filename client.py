@@ -58,9 +58,10 @@ def validateArguments(args):
 # Opens/closes a new connection to the server
 #
 
-async def sendGetRequest(cmd, key, msg):
+async def sendGetRequest():
+    global key
     reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
-    request = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
+    request = GET_CMD + key.encode('utf-8') + b'\n'
     writer.write(request)
     data = await reader.readline()
     #print(f'Recieved: {data.decode("utf-8")}')
@@ -68,31 +69,30 @@ async def sendGetRequest(cmd, key, msg):
     await writer.wait_closed()
     return data.decode('utf-8')
 
-async def sendPutRequest(cmd, key, msg):
-    check = True
-    print(f'key is: ', key)
-    reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
-    request = cmd + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
-    writer.write(request)
-    data = await reader.readline()
-    writer.close()
-    await writer.wait_closed()
-        
-    while check:
-        if data.decode('utf-8')[:len(NO_RESPONSE)] == NO_RESPONSE:
-            reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
-            key = data.decode('utf-8')[len(NO_RESPONSE):KEY_LENGTH]
-            new_msg = key + data.decode('utf-8')[KEY_LENGTH:]
-            request = cmd + key.encode('utf-8') + new_msg.encode('utf-8') + b'\n'
-            writer.write(request)
-            data = await reader.readline()
-            print(f'Recieved: {data.decode("utf-8")}')
-            writer.close()
-            await writer.wait_closed()
+
+async def sendPutRequest(key, msg):
+    og_msg = msg[KEY_LENGTH:]
+    request = PUT_CMD + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
+    
+    while True: 
+        reader, writer = await asyncio.open_connection(SERVER_IP, PORT)
+        writer.write(request)
+        response = await reader.readline()
+        writer.close()
+        await writer.wait_closed()
+        response = response.decode('utf-8')
+        #print(f'[Response:] ', response)
+    
+        if response[:len(NO_RESPONSE)] == NO_RESPONSE:
+            key = response[len(NO_RESPONSE):len(NO_RESPONSE) + KEY_LENGTH]
+            next_key = ''.join(random.choices(string.digits, k=KEY_LENGTH))
+            msg = next_key + og_msg
+            request = PUT_CMD + key.encode('utf-8') + msg.encode('utf-8') + b'\n'
         else:
-            check = False
-        #print(f'Recieved: {data.decode("utf-8")}')
-    return data.decode('utf-8')
+            return response
+    
+    
+    
 #
 # PURPOSE:
 # Given a key from the command line, print all associated messages in the thread, then prompt
@@ -109,32 +109,37 @@ async def sendPutRequest(cmd, key, msg):
 #
 async def get():
     global key
+    
     while True:
-        get_result = await sendGetRequest(GET_CMD, key, BLANK)
+        get_result = await sendGetRequest()
         msg = get_result.strip()[KEY_LENGTH:]
         
         while len(msg) > 0:
             key = get_result.strip()[:KEY_LENGTH]
             print(f'Message: {msg}')
-            get_result = await sendGetRequest(GET_CMD, key, BLANK)
+            get_result = await sendGetRequest()
             msg = get_result.strip()[KEY_LENGTH:]
         
+        #print(f'Looking for key: {key}')
         await asyncio.sleep(5)
+
+
 
 async def put():
     global key
+    
     while True:
-
         next_key = ''.join(random.choices(string.digits, k=KEY_LENGTH))
-
         loop = asyncio.get_running_loop()
         try:
+            print()
             new_msg = await loop.run_in_executor(None, input, f'Please enter a message for key {next_key}: ')
         except:
            break
-        new_msg = next_key + new_msg
 
-        await sendPutRequest(PUT_CMD, key, new_msg)
+        new_msg = next_key + new_msg
+        await sendPutRequest(key, new_msg)
+        
 
 async def main():
     try:

@@ -8,14 +8,14 @@ import traceback
 KEY_SIZE = 8
 MAX_MSG_SIZE = 160
 
-HOST = '::1'
+#HOST = '::1'
+HOST = ''
 PORT = 12345
 
 ERROR_RESPONSE = b"NO"
 GET_CMD = "GET".encode('utf-8')
 OK_RESPONSE = b'OK'
 PUT_CMD = "PUT".encode('utf-8')
-NO_MSG = 'NO '
 NO_RESPONSE = b'NO'
 
 lock = threading.Semaphore(1)
@@ -68,7 +68,6 @@ def process_put(s):
     lock.release()
     
     if keyInMsg:
-        #return NO_RESPONSE + exMsg
         lock.acquire()
         exMsg = messages[key]
         lock.release()
