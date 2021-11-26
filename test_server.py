@@ -84,19 +84,22 @@ def test_message_size():
     putKey = 'PUTijklmnop'
     getKey = 'GETijklmnop'
     putMsg = ''
+    firstPut = True
     for i in range(160):
         putMsg = putMsg + str(i % 10)
         output = transmit(putKey + putMsg)
-        assert output == b'OK\n'
-
-        output = transmit(getKey)
-        assert output == (putMsg + '\n').encode('utf-8')
+        if firstPut:
+            assert output == b'OK\n'
+            output = transmit(getKey)
+            assert output == (putMsg + '\n').encode('utf-8')
+        else:
+            lastMsg = output.decode('utf-8')[10:]
+        firstPut = False
+        
     print(len(putMsg))
     output = transmit(putKey + putMsg + 'X')
     assert output == b'NO\n'
 
-    output = transmit(getKey)
-    assert output == (putMsg + '\n').encode('utf-8')
 
 def get_line(current_socket):
     buffer = b''
@@ -168,7 +171,7 @@ def test_fragmentation():
     print('\n----\n')
     sock = setup_cnx(-1)
     fragmented_put_cmd = 'PUTabcdefghThis is a test\nX'
-    assert send_individually(fragmented_put_cmd, sock) == b'OK'
+    assert send_individually(fragmented_put_cmd, sock) == b'NOThis is a test'
     sock.close()
 
     sock = setup_cnx(-2)
